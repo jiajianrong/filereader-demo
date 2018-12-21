@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>SparkMD5 file reader test</title>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <script src="spark-md5.js" type="text/javascript"></script>
+    </head>
+    <body class="container">
+        <input type="file" id="file"/>
+        
+        <script>
+        var input = document.getElementById('file');
+        input.addEventListener('change', function(e){
+            var file = e.target.files[0];
+            var reader = new FileReader();
+            reader.onloadend = function(event) {
+                var binary = event.target.result;
+                var md5 = arrayBufferToMD5(binary);
+                var b64 = arrayBufferToBase64(binary);
+                console.log(md5);
+                console.log(b64);
+            };
+            reader.readAsArrayBuffer(file);
+            
+            /*
+            var readerBase64 = new FileReader();
+            readerBase64.onloadend = function(){
+                var base64 = this.result;
+                console.log(base64)
+            };
+            readerBase64.readAsDataURL(file);
+            */
+        });
+        
+        
+        function arrayBufferToBase64(buffer) {
+            var bytes = new Uint8Array(buffer);
+            var chars = [];
+            
+            var len = bytes.byteLength;
+            for (let i=0; i<len; i++) {
+                chars.push(String.fromCharCode(bytes[i]))
+            }
+            
+            var binary = chars.join('');
+            return window.btoa(binary);
+        }
+        
+        
+        function arrayBufferToMD5(buffer) {
+            var spark = new SparkMD5.ArrayBuffer();
+            spark.append(buffer);
+            return spark.end();
+        }
+        
+        /*
+        function base64ArrayBuffer(arrayBuffer) {
+          var base64    = ''
+          var encodings = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+
+          var bytes         = new Uint8Array(arrayBuffer)
+          var byteLength    = bytes.byteLength
+          var byteRemainder = byteLength % 3
+          var mainLength    = byteLength - byteRemainder
+
+          var a, b, c, d
+          var chunk
+
+          // Main loop deals with bytes in chunks of 3
+          for (var i = 0; i < mainLength; i = i + 3) {
+            // Combine the three bytes into a single integer
+            chunk = (bytes[i] << 16) | (bytes[i + 1] << 8) | bytes[i + 2]
+
+            // Use bitmasks to extract 6-bit segments from the triplet
+            a = (chunk & 16515072) >> 18 // 16515072 = (2^6 - 1) << 18
+            b = (chunk & 258048)   >> 12 // 258048   = (2^6 - 1) << 12
+            c = (chunk & 4032)     >>  6 // 4032     = (2^6 - 1) << 6
+            d = chunk & 63               // 63       = 2^6 - 1
+
+            // Convert the raw binary segments to the appropriate ASCII encoding
+            base64 += encodings[a] + encodings[b] + encodings[c] + encodings[d]
+          }
+
+          // Deal with the remaining bytes and padding
+          if (byteRemainder == 1) {
+            chunk = bytes[mainLength]
+
+            a = (chunk & 252) >> 2 // 252 = (2^6 - 1) << 2
+
+            // Set the 4 least significant bits to zero
+            b = (chunk & 3)   << 4 // 3   = 2^2 - 1
+
+            base64 += encodings[a] + encodings[b] + '=='
+          } else if (byteRemainder == 2) {
+            chunk = (bytes[mainLength] << 8) | bytes[mainLength + 1]
+
+            a = (chunk & 64512) >> 10 // 64512 = (2^6 - 1) << 10
+            b = (chunk & 1008)  >>  4 // 1008  = (2^6 - 1) << 4
+
+            // Set the 2 least significant bits to zero
+            c = (chunk & 15)    <<  2 // 15    = 2^4 - 1
+
+            base64 += encodings[a] + encodings[b] + encodings[c] + '='
+          }
+          
+          return base64
+        }
+        */
+        
+        /*
+        function getRealMimeType(reader){
+            var arr = (new Uint8Array(reader.result)).subarray(0, 4);
+            var header = '';
+            var realMimeType;
+
+            for (var i = 0; i < arr.length; i++) {
+                header += arr[i].toString(16);
+            }
+
+            // magic numbers: http://www.garykessler.net/library/file_sigs.html
+            switch (header) {
+                case "89504e47":
+                    realMimeType = "image/png";
+                    break;
+                case "47494638":
+                    realMimeType = "image/gif";
+                    break;
+                case "ffd8ffDB":
+                case "ffd8ffe0":
+                case "ffd8ffe1":
+                case "ffd8ffe2":
+                case "ffd8ffe3":
+                case "ffd8ffe8":
+                    realMimeType = "image/jpeg";
+                    break;
+                default:
+                    realMimeType = "unknown"; // Or you can use the blob.type as fallback
+                    break;
+            }
+
+            return realMimeType;
+        }
+        */
+        
+        /*
+        document.getElementById('file').addEventListener('change', function () {
+            var blobSlice = File.prototype.slice || File.prototype.mozSlice || File.prototype.webkitSlice,
+                file = this.files[0],
+                chunkSize = 2097152,                             // Read in chunks of 2MB
+                chunks = Math.ceil(file.size / chunkSize),
+                currentChunk = 0,
+                spark = new SparkMD5.ArrayBuffer(),
+                fileReader = new FileReader();
+
+            fileReader.onload = function (e) {
+                console.log('read chunk nr', currentChunk + 1, 'of', chunks);
+                console.log(e.target.result.length)
+                spark.append(e.target.result);                   // Append array buffer
+                currentChunk++;
+
+                if (currentChunk < chunks) {
+                    loadNext();
+                } else {
+                    console.log('finished loading');
+                    console.info('computed hash', spark.end());  // Compute hash
+                }
+            };
+
+            fileReader.onerror = function () {
+                console.warn('oops, something went wrong.');
+            };
+
+            function loadNext() {
+                var start = currentChunk * chunkSize,
+                    end = ((start + chunkSize) >= file.size) ? file.size : start + chunkSize;
+
+                fileReader.readAsArrayBuffer(blobSlice.call(file, start, end));
+            }
+
+            loadNext();
+        });
+        */
+        </script>
+    </body>
+</html>
